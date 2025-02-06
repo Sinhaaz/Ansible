@@ -1,0 +1,67 @@
+---
+- name: Install Maven and Other Dependencies
+  hosts: server
+  become: true
+  tasks:
+    - name: Install Maven
+      dnf:
+        name: maven
+        state: present
+
+    - name: Remove Podman and Podman-Docker to Avoid Docker Conflict
+      dnf:
+        name:
+          - podman-docker
+          - podman
+        state: absent
+      ignore_errors: yes
+
+    - name: Download the Latest kubectl Binary
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      args:
+        creates: /usr/local/bin/kubectl
+
+    # Additional tasks ...
+
+    - name: Install Azure CLI
+      dnf:
+        name: azure-cli
+        state: present
+
+    - name: Verify Azure CLI Installation
+      shell: az --version
+      register: azure_cli_version_output
+      changed_when: false
+
+    - debug:
+        var: azure_cli_version_output.stdout
+
+- name: Install Terraform
+  hosts: server
+  become: true
+  tasks:
+    - name: Install yum-utils
+      yum:
+        name: yum-utils
+        state: present
+
+    - name: Add HashiCorp Repository
+      command: >
+        yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+      args:
+        creates: /etc/yum.repos.d/hashicorp.repo
+
+    - name: Install Terraform
+      yum:
+        name: terraform
+        state: present
+
+    - name: Verify Terraform Installation
+      command: terraform --version
+      register: terraform_version_output
+      ignore_errors: no
+
+    - name: Display Terraform Version
+      debug:
+        msg: "Installed Terraform version: {{ terraform_version_output.stdout }}"
